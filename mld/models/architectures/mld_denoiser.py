@@ -5,7 +5,7 @@ from mld.models.architectures.tools.embeddings import (TimestepEmbedding,
 from mld.models.operator import PositionalEncoding
 from mld.models.operator.cross_attention import (SkipTransformerEncoder,
                                                  TransformerDecoder,
-                                                 TransformerEncoderTemporalLayer,
+                                                #  TransformerEncoderTemporalLayer,
                                                  TransformerDecoderLayer,
                                                  TransformerEncoder,
                                                  TransformerEncoderLayer)
@@ -20,13 +20,13 @@ from mld.models.architectures.mld_style_encoder import StyleClassification
 import numpy as np
 from diffusers.models.attention import Attention as CrossAttention
 from functools import partial
-    
+
 def shuffle_segments(tensor, segment_length,noise_probability=0.2,mask_probability=0.4, mask_ratio=0.2):
     if tensor.dim() != 3:
         raise ValueError("Input tensor must be 3-dimensional")
 
     C, T, H = tensor.size()
-    
+
     num_segments = T // segment_length
 
     shuffled_tensor = tensor.clone()
@@ -82,7 +82,7 @@ class MldDenoiser(nn.Module):
         self.diffusion_only = ablation.VAE_TYPE == "no"
         self.arch = arch
         self.pe_type = ablation.DIFF_PE_TYPE
-        
+
         if self.diffusion_only:
             # assert self.arch == "trans_enc", "only implement encoder for diffusion-only"
             self.pose_embd = nn.Linear(nfeats, self.latent_dim)
@@ -101,7 +101,7 @@ class MldDenoiser(nn.Module):
                 # todo 10.24 debug why relu
                 self.emb_proj = nn.Sequential(
                     nn.ReLU(), nn.Linear(text_encoded_dim, self.latent_dim))
-     
+
         if self.pe_type == "mld":
             self.query_pos = build_position_encoding(
                 self.latent_dim, position_embedding=position_embedding)
@@ -134,7 +134,7 @@ class MldDenoiser(nn.Module):
                     activation=activation)
                 self.encoder = nn.TransformerEncoder(encoder_layer,
                                                      num_layers=num_layers)
-        
+
 
     def forward(self,
                 sample,
@@ -164,7 +164,7 @@ class MldDenoiser(nn.Module):
             # text_emb [seq_len, batch_size, text_encoded_dim] <= [batch_size, seq_len, text_encoded_dim]
             encoder_hidden_states = encoder_hidden_states.permute(1, 0, 2)
             text_emb = encoder_hidden_states  # [num_words, bs, latent_dim]
-           
+
             if self.text_encoded_dim != self.latent_dim:
                 # [1 or 2, bs, latent_dim] <= [1 or 2, bs, text_encoded_dim]
                 text_emb_latent = self.emb_proj(text_emb)
@@ -174,7 +174,7 @@ class MldDenoiser(nn.Module):
                 emb_latent = time_emb + text_emb_latent
             else:
                 emb_latent = torch.cat((time_emb, text_emb_latent), 0)
-     
+
         else:
             raise TypeError(f"condition type {self.condition} not supported")
 
@@ -237,13 +237,13 @@ class ControlMldDenoiser(nn.Module):
         self.arch = arch
         self.pe_type = ablation.DIFF_PE_TYPE
         self.latent_size = latent_dim[0]
-        self.is_adain = ablation.IS_ADAIN
+        # self.is_adain = ablation.IS_ADAIN # defined in configs/base.yaml
         self.alpha = 1.0
         self.is_test = ablation.TEST
-        self.is_test_walk = ablation.TEST_WALK
+        # self.is_test_walk = ablation.TEST_WALK
 
-        self.is_style_text = ablation.IS_STYLE_TEXT
-        
+        # self.is_style_text = ablation.IS_STYLE_TEXT
+
         #MLD
         if text_encoded_dim != self.latent_dim:
                 self.emb_proj = nn.Sequential(nn.ReLU(), nn.Linear(text_encoded_dim, self.latent_dim))
@@ -252,7 +252,7 @@ class ControlMldDenoiser(nn.Module):
             self.latent_dim, position_embedding=position_embedding)
         self.mem_pos = build_position_encoding(
             self.latent_dim, position_embedding=position_embedding)
-        
+
         self.mld_denoiser = MldDenoiser(ablation,
                  nfeats,
                  condition,
@@ -273,7 +273,7 @@ class ControlMldDenoiser(nn.Module):
                  text_encoded_dim,
                  nclasses,
                  **kwargs)
-        
+
         self.style_encoder = StyleClassification(nclasses=100,use_temporal_atten=False)
         #CMLD
         self.skel_embedding = nn.Linear(input_feats, self.latent_dim)
@@ -297,19 +297,19 @@ class ControlMldDenoiser(nn.Module):
         )
 
         self.encoder_c = SkipTransformerEncoder(encoder_layer_c,num_layers, encoder_norm_c,return_intermediate=True)
-    
+
     def freeze_mld_parameters(self):
         print("Freeze the parameters of MLD")
         for param in self.mld_denoiser.parameters():
             param.requires_grad = False
-        
+
         self.mld_denoiser.eval()
 
     def freeze_style_encoder_parameters(self):
         print("Freeze the parameters of style_encoder")
         for param in self.style_encoder.parameters():
             param.requires_grad = False
-        
+
         self.style_encoder.eval()
 
     def cmld_forward(self,
@@ -320,9 +320,9 @@ class ControlMldDenoiser(nn.Module):
                 reference=None,
                 style_text_emb=None,
                 **kwargs):
-        
+
         sample = sample.permute(1, 0, 2)
-        
+
         style_emb = self.style_encode(reference)
 
         # 0. check lengths for no vae (diffusion only)
@@ -359,11 +359,11 @@ class ControlMldDenoiser(nn.Module):
         control = []
         for i,module in enumerate(self.zero_convs):
             control.append(module(output[i]))
-        
+
         control = torch.stack(control)
 
         return control
-    
+
     def forward(self,
                 sample,
                 timestep,
@@ -372,7 +372,7 @@ class ControlMldDenoiser(nn.Module):
                 reference=None,
                 style_text_emb=None,
                 **kwargs):
-        
+
         control = None
 
         if reference is not None or style_text_emb is not None:
@@ -383,7 +383,7 @@ class ControlMldDenoiser(nn.Module):
                     lengths,
                     reference=reference,
                     **kwargs)
-           
+
         output = self.mld_denoiser(sample,
                     timestep,
                     encoder_hidden_states,
@@ -392,13 +392,13 @@ class ControlMldDenoiser(nn.Module):
                     **kwargs)
 
         return output
-    
+
     def style_encode(
             self,
             reference: Tensor,
             lengths: Optional[List[int]] = None
-    ) -> Union[Tensor, Distribution]:        
-        reference = shuffle_segments(reference,16)        
+    ) -> Union[Tensor, Distribution]:
+        reference = shuffle_segments(reference,16)
         output = self.style_encoder(reference,lengths,stage="Encode")
 
         return output

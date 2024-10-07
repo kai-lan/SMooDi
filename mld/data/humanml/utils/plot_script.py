@@ -96,9 +96,7 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, dataset, figsize=(3
     #     print(trajec.shape)
 
     def update(index):
-        #         print(index)
-        ax.lines = []
-        ax.collections = []
+        ax.clear()  # replace upper two lines, so code works with newer matplotlib versions
         ax.view_init(elev=120, azim=-90)
         ax.dist = 7.5
         #         ax =

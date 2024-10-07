@@ -109,7 +109,7 @@ def get_datasets(cfg, logger=None, phase="train"):
                     f"cfg.DATASET.{dataset_name.upper()}.UNIT_LEN"),
             )
             datasets.append(dataset)
-        
+
         elif dataset_name.lower() in ["humanact12", 'uestc']:
             # get collect_fn
             collate_fn = get_collate_fn(dataset_name, phase)

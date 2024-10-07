@@ -12,9 +12,9 @@ class CosineSimilarityLoss(nn.Module):
 
     def forward(self, input_features, target_features):
         cosine_sim = F.cosine_similarity(input_features, target_features)
-        loss = 1 - cosine_sim.mean()  
+        loss = 1 - cosine_sim.mean()
         return loss
-    
+
 class InfoNCE_with_filtering:
     def __init__(self, temperature=0.7, threshold_selfsim=0.8):
         self.temperature = temperature
@@ -71,9 +71,9 @@ class MLDLosses(Metric):
         self.is_cycle = cfg.TRAIN.ABLATION.CYCLE
         self.is_recon = cfg.TRAIN.ABLATION.RECON
         self.is_two_dataset = cfg.TRAIN.ABLATION.TWODATASET
-        self.is_tri = cfg.TRAIN.ABLATION.IS_TRI
-        self.is_info = cfg.TRAIN.ABLATION.IS_INFONCE
-        self.is_style_recon = cfg.TRAIN.ABLATION.STYLE_RECON
+        # self.is_tri = cfg.TRAIN.ABLATION.IS_TRI
+        # self.is_info = cfg.TRAIN.ABLATION.IS_INFONCE
+        # self.is_style_recon = cfg.TRAIN.ABLATION.STYLE_RECON
         self.is_motion_clip = cfg.TRAIN.ABLATION.IS_MOTION_CLIP
         losses = []
 
@@ -167,13 +167,13 @@ class MLDLosses(Metric):
         # Compute the losses
         # Compute instance loss
         if self.stage in ["vae", "vae_diffusion"]:
-            
+
             total += self._update_loss("recons_feature", rs_set['m_rst'],
                                        rs_set['m_ref'])
             total += self._update_loss("recons_joints", rs_set['joints_rst'],
                                        rs_set['joints_ref'])
             total += self._update_loss("kl_motion", rs_set['dist_m'], rs_set['dist_ref'])
-        
+
         if self.stage in ["diffusion", "vae_diffusion","cycle_diffusion"]:
             # predict noise HERE!!!
             if self.predict_epsilon:
@@ -181,7 +181,7 @@ class MLDLosses(Metric):
 
                 if self.is_two_dataset:
                     total += self._update_loss("inst_loss", rs_set['noise_y'],rs_set['noise_pred_y'])
-                         
+
                 if self.is_cycle:
                     total += self._update_loss("cycle_loss", rs_set['noise_cycle_y'],rs_set['noise_pred_cycle_y'])
                     total += self._update_loss("cycle_loss", rs_set['noise_cycle'],rs_set['noise_pred_cycle'])
@@ -191,7 +191,7 @@ class MLDLosses(Metric):
                                            rs_set['latent'])
 
             if self.cfg.LOSS.LAMBDA_PRIOR != 0.0:
-                # loss - prior loss 
+                # loss - prior loss
                 # LAMBDA_PRIOR = 0.0
                 total += self._update_loss("prior_loss", rs_set['noise_prior'],
                                            rs_set['dist_m1'])
@@ -228,7 +228,7 @@ class MLDLosses(Metric):
         # Return a weighted sum
         weighted_loss = self._params[loss] * val
         return weighted_loss
-    
+
     def loss2logname(self, loss: str, split: str):
         if loss == "total":
             log_name = f"{loss}/{split}"

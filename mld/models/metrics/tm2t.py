@@ -4,7 +4,7 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 from torchmetrics.functional import pairwise_euclidean_distance
-from tmr.src.model.tmr import get_score_matrix
+# from tmr.src.model.tmr import get_score_matrix
 from .utils import *
 from scipy.ndimage import uniform_filter1d
 
@@ -12,7 +12,7 @@ from scipy.ndimage import uniform_filter1d
 def calculate_skating_ratio(motions):
     thresh_height = 0.05 # 10
     fps = 20.0
-    thresh_vel = 0.50 # 20 cm /s 
+    thresh_vel = 0.50 # 20 cm /s
     avg_window = 5 # frames
 
     batch_size = motions.shape[0]
@@ -37,7 +37,7 @@ def calculate_skating_ratio(motions):
     # Both feet slide
     skating = np.logical_or(skating[:, 0, :], skating[:, 1, :]) # [bs, max_len -1]
     skating_ratio = np.sum(skating, axis=1) / skating.shape[1]
-    
+
     return skating_ratio, skate_vel
 
 
@@ -51,7 +51,7 @@ def topk_accuracy(outputs, labels, topk=(1,3,5)):
     :return: List of top-k accuracies for each k in topk
     """
     maxk = max(topk)
-    
+
     batch_size = labels.size(0)
     outputs = outputs.squeeze()
     # Get the top maxk indices along the last dimension (num_classes)
@@ -99,7 +99,7 @@ class TM2TMetrics(Metric):
         self.add_state("gt_Matching_score",
                        default=torch.tensor(0.0),
                        dist_reduce_fx="sum")
-        
+
         self.Matching_metrics = ["Matching_score", "gt_Matching_score"]
         for k in range(1, top_k + 1):
             self.add_state(
@@ -187,12 +187,12 @@ class TM2TMetrics(Metric):
         all_gtmotions = torch.cat(self.gtmotion_embeddings,
                                   axis=0).cpu()[shuffle_idx, :]
 
-    
+
         all_joints_rst = self.joints_rst
 
         all_predicted = torch.cat(self.predicted,
                               axis=0).cpu()[shuffle_idx, :]
-        
+
         all_label = torch.cat(self.label,
                               axis=0).cpu()[shuffle_idx, :]
 
@@ -260,7 +260,7 @@ class TM2TMetrics(Metric):
             # joints = all_joints_rst[index]
             skate_ratio, skate_vel = calculate_skating_ratio(all_joints_rst[index].permute(0, 2, 3, 1))
             skate_ratio_sum += skate_ratio
-        
+
         # skate_ratio, skate_vel = calculate_skating_ratio(all_joints_rst.permute(0, 2, 3, 1))
         metrics["skate_ratio"] = skate_ratio_sum / len(all_joints_rst)
 
@@ -318,7 +318,7 @@ class TM2TMetrics(Metric):
 
         # lat_tmr_m = torch.flatten(lat_tmr_m.unsqueeze(0),
         #                                     start_dim=1).detach()
-        
+
         # lat_tmr_t = torch.flatten(lat_tmr_t.unsqueeze(0),
         #                                     start_dim=1).detach()
 
@@ -326,14 +326,14 @@ class TM2TMetrics(Metric):
         predicted = predicted.unsqueeze(0).unsqueeze(0)
         label = label.unsqueeze(0).unsqueeze(0)
 
- 
+
         # store all texts and motions
         self.text_embeddings.append(text_embeddings)
         self.recmotion_embeddings.append(recmotion_embeddings)
         self.gtmotion_embeddings.append(gtmotion_embeddings)
         self.predicted.append(predicted)
         self.label.append(label)
-        
+
         print("time:::",time)
         self.joints_rst.append(joints_rst)
 
@@ -417,7 +417,7 @@ class TM2TMetrics_Walk(Metric):
 
         all_predicted = torch.cat(self.predicted,
                               axis=0).cpu()[shuffle_idx, :]
-        
+
         all_label = torch.cat(self.label,
                               axis=0).cpu()[shuffle_idx, :]
 
@@ -476,7 +476,7 @@ class TM2TMetrics_Walk(Metric):
         predicted = predicted.unsqueeze(0).unsqueeze(0)
         label = label.unsqueeze(0).unsqueeze(0)
 
- 
+
         # store all texts and motions
         # self.text_embeddings.append(text_embeddings)
         self.recmotion_embeddings.append(recmotion_embeddings)
@@ -568,7 +568,7 @@ class TM2TMetrics_MST(Metric):
 
         all_predicted = torch.cat(self.predicted,
                               axis=0).cpu()[shuffle_idx, :]
-        
+
         all_label = torch.cat(self.label,
                               axis=0).cpu()[shuffle_idx, :]
 
@@ -596,10 +596,10 @@ class TM2TMetrics_MST(Metric):
             # joints = all_joints_rst[index]
             skate_ratio, skate_vel = calculate_skating_ratio(all_joints_rst[index].permute(0, 2, 3, 1))
             skate_ratio_sum += skate_ratio
-        
+
         # skate_ratio, skate_vel = calculate_skating_ratio(all_joints_rst.permute(0, 2, 3, 1))
         metrics["skate_ratio"] = skate_ratio_sum / len(all_joints_rst)
-        
+
 
         output = topk_accuracy(all_predicted,all_label)
         metrics["SRA_3"] = output[1]
@@ -642,7 +642,7 @@ class TM2TMetrics_MST(Metric):
         predicted = predicted.unsqueeze(0).unsqueeze(0)
         label = label.unsqueeze(0).unsqueeze(0)
 
- 
+
         # store all texts and motions
         # self.text_embeddings.append(text_embeddings)
         self.recmotion_embeddings.append(recmotion_embeddings)
@@ -734,14 +734,14 @@ class TM2TMetrics_MST_XIA(Metric):
 
         all_predicted = torch.cat(self.predicted,
                               axis=0).cpu()[shuffle_idx, :]
-        
+
         all_label = torch.cat(self.label,
                               axis=0).cpu()[shuffle_idx, :]
 
-        
+
         all_predicted_c = torch.cat(self.predicted_c,
                               axis=0).cpu()[shuffle_idx, :]
-        
+
         all_label_c = torch.cat(self.label_c,
                               axis=0).cpu()[shuffle_idx, :]
 
@@ -764,10 +764,10 @@ class TM2TMetrics_MST_XIA(Metric):
             # joints = all_joints_rst[index]
             skate_ratio, skate_vel = calculate_skating_ratio(all_joints_rst[index].permute(0, 2, 3, 1))
             skate_ratio_sum += skate_ratio
-        
+
         # skate_ratio, skate_vel = calculate_skating_ratio(all_joints_rst.permute(0, 2, 3, 1))
         metrics["skate_ratio"] = skate_ratio_sum / len(all_joints_rst)
-        
+
 
         output = topk_accuracy(all_predicted,all_label)
         metrics["SRA_3"] = output[1]
@@ -777,7 +777,7 @@ class TM2TMetrics_MST_XIA(Metric):
         output_c = topk_accuracy(all_predicted_c,all_label_c)
         metrics["CRA"] = output_c[0]
 
-    
+
         return {**metrics}
 
     def update(
@@ -810,7 +810,7 @@ class TM2TMetrics_MST_XIA(Metric):
         predicted_c = predicted_c.unsqueeze(0).unsqueeze(0)
         label_c = label_c.unsqueeze(0).unsqueeze(0)
 
- 
+
         # store all texts and motions
         self.recmotion_embeddings.append(recmotion_embeddings)
         self.gtmotion_embeddings.append(gtmotion_embeddings)

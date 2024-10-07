@@ -8,7 +8,7 @@ NAME: CMLD_100STYLE_W_STYLETEXT_CYCLE100_V1_01
 #MLD: f(z_t,t) + alpha[f(z_t,t,Tx) - f(z_t,t)]
 
 #Current;v0: f(z_t,t,Cx) + alpha[f(z_t,t,Cx,Tx) - f(z_t,t,Cx)] good
-#V4:f(z_t,t) + + alpha[f(z_t,t,Tx) - f(z_t,t] + alpha[f(z_t,t,Cx,Tx) - f(z_t,t,Tx)] 
+#V4:f(z_t,t) + + alpha[f(z_t,t,Tx) - f(z_t,t] + alpha[f(z_t,t,Cx,Tx) - f(z_t,t,Tx)]
 
 # NAME: Test
 # Debug mode. Set to True will enter the debug mode, then the program will
@@ -40,10 +40,10 @@ TRAIN:
   # PRETRAINED: ./experiments/mld/CMLD_100STYLE_W_STYLETEXT_CYCLE100_V1_01_WO_CYCLE/checkpoints/epoch=49.ckpt
   # RESUME: "./experiments/mld/CMLD_100STYLE_W_STYLETEXT_CYCLE100_V1_01_COMBINE"
   # PRETRAINED_VAE: ./experiments/mld/CMLD_100STYLE_VAE/checkpoints/epoch=59.ckpt  # vae model path
-  PRETRAINED_VAE: ./checkpoints/mld_humanml3d_checkpoint/1222_mld_humanml3d_FID041.ckpt # vae model path
-  PRETRAINED_MLD: ./checkpoints/mld_humanml3d_checkpoint/1222_mld_humanml3d_FID041.ckpt # vae model path
+  PRETRAINED_VAE: ./save/mld_humanml3d_checkpoint/1222_mld_humanml3d_FID041.ckpt # vae model path
+  PRETRAINED_MLD: ./save/mld_humanml3d_checkpoint/1222_mld_humanml3d_FID041.ckpt # vae model path
 
-  PRETRAINED_STYLE: ./experiments/style_classifier.pt
+  PRETRAINED_STYLE: ./save/style_classifier.pt
 
   OPTIM:
     TYPE: AdamW # Optimizer type
@@ -66,7 +66,7 @@ EVAL:
 # The following are testing settings
 #####################################
 TEST:
-  CHECKPOINTS: ./experiments/SMooDi.ckpt # Pretrained model path
+  CHECKPOINTS: ./save/SMooDi.ckpt # Pretrained model path
 
   DATASETS: ['humanml3d'] # training datasets
   SPLIT: test
@@ -122,10 +122,10 @@ model:
 
   cmld: true #true
   is_control: true #true
-  is_guidance: true  
+  is_guidance: true
   is_cycle: true #true
   is_recon: False
-  is_test: False  
+  is_test: False
 
   guidance_mode: 'v4'
 

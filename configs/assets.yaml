@@ -16,9 +16,9 @@ DATASET:
     # ROOT: '/work/vig/zhonglei/stylized_motion/dataset/100STYLE' # HumanML3D directory
     # SPLIT_ROOT: '/work/vig/zhonglei/stylized_motion/dataset/100STYLE' # HumanML3D splits directory
 
-    ROOT: '/work/vig/zhonglei/stylized_motion/dataset_all' # HumanML3D directory
-    SPLIT_ROOT: '/work/vig/zhonglei/stylized_motion/dataset_all'
-    
+    ROOT: './datasets/HumanML3D' # HumanML3D directory
+    SPLIT_ROOT: './datasets'
+
     # ROOT: '/work/vig/zhonglei/stylized_motion/dataset/HumanML3D' # HumanML3D directory
     # SPLIT_ROOT: '/work/vig/zhonglei/stylized_motion/dataset/HumanML3D'
   HUMANACT12:
@@ -46,6 +46,6 @@ model:
   #   MODELPATH: './deps/distilbert-base-uncased' # bert model path for text content encoder
 
 RENDER:
-  BLENDER_PATH: '/work/vig/zhonglei/stylized_motion/blender-2.93.14-linux-x64/blender'
-  FACES_PATH: '/work/vig/zhonglei/stylized_motion/motion-latent-diffusion/deps/smpl_models/smplh/smplh.faces'
+  BLENDER_PATH: 'blender'
+  FACES_PATH: './deps/smpl_models/smplh/smplh.faces'
   FOLDER: ./animations

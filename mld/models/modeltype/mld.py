@@ -108,7 +108,7 @@ def print_grad(grad):
 
 def build_dict_from_txt(filename):
     result_dict = {}
-    
+
     with open(filename, 'r') as f:
         for line in f:
             parts = line.strip().split(" ")
@@ -116,7 +116,7 @@ def build_dict_from_txt(filename):
                 key = parts[2]
                 value = parts[1].split("_")[0]
                 result_dict[key] = value
-                
+
     return result_dict
 
 class MLD(BaseModel):
@@ -155,23 +155,23 @@ class MLD(BaseModel):
 
         if self.is_test:
             nclass = 47
-            dict_path = "./dataset/100STYLE_name_dict_Filter.txt"
+            dict_path = "./datasets/100STYLE_name_dict_Filter.txt"
         else:
             nclass = 100
-            dict_path = "./dataset//100STYLE_name_dict.txt"
+            dict_path = "./datasets/100STYLE_name_dict.txt"
 
         self.label_to_motion = build_dict_from_txt(dict_path)
 
         if self.is_cycle == True:
             self.stage = "cycle_diffusion"#"cycle_diffusion"
-        
+
         if self.is_test:
-            self.mean = np.load("/work/vig/zhonglei/stylized_motion/dataset_all/Mean.npy")
-            self.std = np.load("/work/vig/zhonglei/stylized_motion/dataset_all/Std.npy")
+            self.mean = np.load("./datasets/Mean.npy")
+            self.std = np.load("./datasets/Std.npy")
 
             self.mean = torch.from_numpy(self.mean).cuda()
             self.std = torch.from_numpy(self.std).cuda()
-     
+
         try:
             self.vae_type = cfg.model.vae_type
         except:
@@ -182,13 +182,13 @@ class MLD(BaseModel):
 
         if self.vae_type != "no":
             self.vae = instantiate_from_config(cfg.model.motion_vae)
-        
+
         self.denoiser = instantiate_from_config(cfg.model.denoiser)
 
         self.style_function = StyleClassification(nclasses=nclass)
         self.style_function.eval()
 
-    
+
         # Don't train the motion encoder and decoder
         if self.stage in ["diffusion","cycle_diffusion"]:
             if self.vae_type in ["mld", "vposert","actor"]:
@@ -212,7 +212,7 @@ class MLD(BaseModel):
                     p.requires_grad = False
 
         assert(self.vae_type != "no")
-        
+
         if not self.predict_epsilon:
             cfg.model.scheduler.params['prediction_type'] = 'sample'
             cfg.model.noise_scheduler.params['prediction_type'] = 'sample'
@@ -284,7 +284,7 @@ class MLD(BaseModel):
         dataname = "t2m" if dataname == "humanml3d" else dataname
         t2m_checkpoint = torch.load(
             os.path.join(cfg.model.t2m_path, dataname,
-                         "text_mot_match/model/finest.tar"))
+                         "text_mot_match/model/finest.tar"), weights_only=False)
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
         self.t2m_moveencoder.load_state_dict(
             t2m_checkpoint["movement_encoder"])
@@ -385,7 +385,7 @@ class MLD(BaseModel):
                     for line in self.times:
                         f.write(str(line))
                         f.write('\n')
-        
+
         joints_list = []
         for i in range(len(feats_rst_list)):
 
@@ -399,12 +399,12 @@ class MLD(BaseModel):
     def reconstruct(self, batch,feature = "False"):
         motion = batch["motion"].cuda().float()
         lengths = batch["length"]
-       
+
         # motion = motion[:,:196,:]
         bs,len,_ = motion.shape
         z, dist_m = self.vae.encode(motion, lengths)
         feats_rst = self.vae.decode(z, lengths)
-        
+
         # feats_rst = motion
 
         error = (feats_rst - motion).mean()
@@ -413,7 +413,7 @@ class MLD(BaseModel):
             return remove_padding(joints, lengths)
         else:
             return feats_rst.detach().cpu()
-        
+
     def prev_step(self, model_output, timestep, sample):
         prev_timestep = timestep - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps
         alpha_prod_t = self.scheduler.alphas_cumprod[timestep]
@@ -443,8 +443,8 @@ class MLD(BaseModel):
     def invert(self, batch):
         texts = batch["text"]
         lengths = batch["length"]
-        motion = batch["motion"].cuda().float()        
-        
+        motion = batch["motion"].cuda().float()
+
         # style_motion = batch["style_motion"]
         # style_motion = style_motion[:,:480,:]
 
@@ -497,14 +497,14 @@ class MLD(BaseModel):
         inverted_latents = intermediate_latents[-(start_step+1)] #latents.detach().clone()
 
         return inverted_latents
-            
+
         # set timesteps
 
     def forward(self, batch,feature="False"):
         texts = batch["text"]
         lengths = batch["length"]
         feats_ref = None
-        
+
         if "motion" in batch.keys():
             feats_ref = batch["motion"]
             feats_ref = feats_ref[:,:480,:]
@@ -524,13 +524,13 @@ class MLD(BaseModel):
                     texts = uncond_tokens
                     text_emb = self.text_encoder(texts)
                     z = self._diffusion_reverse(text_emb, lengths,feats_ref)
-                
+
                 elif self.guidance_mode == 'v4':
                     batch_size = len(texts)
-                    reference_motion = reference_motion.expand(batch_size,-1,-1)
-                    empty_ref = torch.zeros_like(reference_motion)
+                    feats_ref = feats_ref.expand(batch_size,-1,-1)
+                    empty_ref = torch.zeros_like(feats_ref)
 
-                    reference_motion = torch.cat((empty_ref,empty_ref,reference_motion),dim=0)
+                    feats_ref = torch.cat((empty_ref,empty_ref,feats_ref),dim=0)
 
                     uncond_tokens = [""] * len(texts)
                     uncond_tokens2 = [""] * len(texts)
@@ -541,7 +541,7 @@ class MLD(BaseModel):
                         uncond_tokens.extend(uncond_tokens)
                     texts = uncond_tokens
                     text_emb = self.text_encoder(texts)
-     
+
                     z = self._diffusion_reverse(text_emb, lengths,feats_ref, is_v4=True)
 
         elif self.stage in ['vae']:
@@ -671,7 +671,7 @@ class MLD(BaseModel):
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + self.guidance_scale * (
                     noise_pred_text - noise_pred_uncond)
-            
+
             # clean_sample = self.get_clean_sample(noise_pred,latents,t)
             latents = self.scheduler.step(noise_pred, t, latents,**extra_step_kwargs).prev_sample
             current_t = int(t.cpu().numpy())-1
@@ -708,7 +708,7 @@ class MLD(BaseModel):
 
         # scale the initial noise by the standard deviation required by the scheduler
         latents = latents * self.scheduler.init_noise_sigma
-            
+
         # set timesteps
         self.scheduler.set_timesteps(
             self.cfg.model.scheduler.num_inference_timesteps)
@@ -752,18 +752,18 @@ class MLD(BaseModel):
                     lengths=lengths,
                     reference=reference_motion,
                 )[0]
-            
+
             # perform guidance
             if self.do_classifier_free_guidance and is_v4 == False:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
-                
+
                 if self.is_guidance and current_t < 300:
                     with torch.set_grad_enabled(True):
                         noise_pred = self.guide(noise_pred, t, latents, lengths,reference_motion)
 
             elif self.do_classifier_free_guidance and is_v4 == True:
-               
+
                 noise_pred_uncond,noise_pred_text,noise_pred_style = noise_pred.chunk(3)
                 delat_pre_text = noise_pred_text - noise_pred_uncond
                 delat_pre_style = noise_pred_style - noise_pred_uncond
@@ -772,7 +772,7 @@ class MLD(BaseModel):
 
                 _,_,reference = reference_motion.chunk(3)
 
-                
+
                 if self.is_guidance and current_t < 300:
                     with torch.set_grad_enabled(True):
                         noise_pred = self.guide(noise_pred, t, latents, lengths,reference)
@@ -780,7 +780,7 @@ class MLD(BaseModel):
                 noise_pred = noise_pred + self.guidance_scale * delat_pre_text
 
             latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
- 
+
         # [batch_size, 1, latent_dim] -> [1, batch_size, latent_dim]
         latents = latents.permute(1, 0, 2)
         return latents
@@ -793,22 +793,22 @@ class MLD(BaseModel):
             noise_pred = noise_pred - scale * grad
         noise_pred = noise_pred.detach().requires_grad_(True)
         return noise_pred
-    
+
 
     def gradients(self,noise_pred,latents,timestep,reference_motion,lengths):
         with torch.enable_grad():
             noise_pred.requires_grad_(True)
             batch_size = noise_pred.shape[0]
             #compute pred_original_sample -> f_theta(x_t, t) or x_0
-            
+
             clean_sample = self.get_clean_sample(noise_pred,latents,timestep)
             joints = self.vae.decode(clean_sample.permute(1, 0, 2).contiguous(), lengths)
 
-            style_pred = self.style_function(joints,stage="intermediate") 
-            style_reference = self.style_function(reference_motion,stage="intermediate") 
+            style_pred = self.style_function(joints,stage="intermediate")
+            style_reference = self.style_function(reference_motion,stage="intermediate")
             loss = 0.0
 
-            weights = [0.0, 2.0] 
+            weights = [0.0, 2.0]
             for i, (pred_feat, target_feat) in enumerate(zip(style_pred, style_reference)):
                 loss += weights[i] * F.l1_loss(pred_feat[0], target_feat[0], reduction='none')
                 loss += weights[i] * F.l1_loss(pred_feat[1], target_feat[1], reduction='none')
@@ -818,9 +818,9 @@ class MLD(BaseModel):
 
             grad = grad.clone()
             grad[..., 0] = 0
-        
+
         noise_pred.detach()
-    
+
         return loss_sum, grad
 
 
@@ -829,7 +829,7 @@ class MLD(BaseModel):
         alpha_prod_t = self.scheduler.alphas_cumprod[timestep]
         beta_prod_t = 1 - alpha_prod_t
         pred_original_sample = (latents - beta_prod_t ** (0.5) * noise_pred) / alpha_prod_t ** (0.5)
-    
+
         return pred_original_sample
 
 
@@ -904,7 +904,7 @@ class MLD(BaseModel):
 
         # Add noise to the latents according to the noise magnitude at each timestep
         noisy_latents_x = self.noise_scheduler.add_noise(latents_x.clone(), noise_x,timesteps)
-        
+
         # Predict the noise residual
         noise_pred_x = self.denoiser(
                 sample=noisy_latents_x,
@@ -916,8 +916,8 @@ class MLD(BaseModel):
             )[0]
 
         return noise_x, noise_pred_x,noisy_latents_x
-        
-        
+
+
     def _cycle_diffusion_process(self, latents_x, latents_y, encoder_hidden_states_x,encoder_hidden_states_y, lengths_x,lengths_y,reference_motion_x,reference_motion_y):
         latents_x = latents_x.permute(1, 0, 2)
         latents_y = latents_y.permute(1, 0, 2)
@@ -958,7 +958,7 @@ class MLD(BaseModel):
             n_set["pred"] = noise_pred_x
             n_set["latent"] = latents_x
         return n_set
-    
+
     def _cyclenet_process(self, x_start, y_start, encoder_hidden_states_x,encoder_hidden_states_y, lengths_x,lengths_y,reference_motion_x,reference_motion_y,reference_motion_x_same=None, cond_emb_empty = None):
         x_start = x_start.permute(1, 0, 2)
         y_start = y_start.permute(1, 0, 2)
@@ -981,7 +981,7 @@ class MLD(BaseModel):
         # Add noise to the latents according to the noise magnitude at each timestep
         x_noise = self.noise_scheduler.add_noise(x_start.clone(), noise_x,timesteps)
         y_noise = self.noise_scheduler.add_noise(y_start.clone(), noise_y,timesteps)
-        
+
         # # Predict the noise residual
         recon_x_output = self.denoiser(
                 sample=x_noise,
@@ -991,7 +991,7 @@ class MLD(BaseModel):
                 reference=reference_motion_x,
                 return_dict=False,
             )[0]
-        
+
         recon_y_output = self.denoiser(
                 sample=y_noise,
                 timestep=timesteps,
@@ -1009,7 +1009,7 @@ class MLD(BaseModel):
                 reference=reference_motion_y,
                 return_dict=False,
             )[0]
-        
+
         noise_yx_prime = self.denoiser(
                 sample=y_noise,
                 timestep=timesteps,
@@ -1022,7 +1022,7 @@ class MLD(BaseModel):
         self.scheduler.set_timesteps(self.cfg.model.scheduler.num_inference_timesteps)
 
         if self.is_tri and reference_motion_x_same is not None:
-           
+
 
             noise_pred_pos = self.denoiser(
                 sample=x_noise,
@@ -1040,7 +1040,7 @@ class MLD(BaseModel):
             extra_step_kwargs["eta"] = self.cfg.model.scheduler.eta
 
         self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.cuda()
-        
+
         xy_prime = self.get_clean_sample(noise_xy_prime, x_noise, timesteps.unsqueeze(1).unsqueeze(2))
         xy_cond = self.vae.decode(xy_prime.permute(1, 0, 2).contiguous(), lengths_x)
 
@@ -1070,7 +1070,7 @@ class MLD(BaseModel):
                 reference=xy_cond,
                 return_dict=False,
             )[0]
-  
+
         n_set = {
             "noise_pred":recon_x_output ,
             "noise": noise_x,
@@ -1143,7 +1143,7 @@ class MLD(BaseModel):
 
         noise_pre_mld = 0.0
         time_mask = torch.where(timesteps > 700, torch.tensor(1).cuda(), torch.tensor(0).cuda())#(timesteps >= 700).bool
-        
+
 
         # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
         if self.cfg.LOSS.LAMBDA_PRIOR != 0.0:
@@ -1172,7 +1172,7 @@ class MLD(BaseModel):
         lengths = batch["length"]
         if self.vae_type in ["mld", "vposert", "actor"]:
             motion_z, dist_m = self.vae.encode(feats_ref, lengths)
-            
+
             feats_rst = self.vae.decode(motion_z, lengths)
         else:
             raise TypeError("vae_type must be mcross or actor")
@@ -1248,7 +1248,7 @@ class MLD(BaseModel):
                 mask2 = mask2.expand_as(feats_ref_2).cuda()
 
                 feats_ref_1 = feats_ref_1 * mask1
-                feats_ref_2 = feats_ref_2 * mask2        
+                feats_ref_2 = feats_ref_2 * mask2
 
             # text encode
             cond_emb_1 = self.text_encoder(text_1)
@@ -1263,7 +1263,7 @@ class MLD(BaseModel):
             n_set = self._cyclenet_process(z_1,z_2, cond_emb_1,cond_emb_2,lengths_1,lengths_2,feats_ref_1,feats_ref_2)
 
         return {**n_set}
-    
+
     def train_diffusion_forward(self, batch):
         feats_ref = batch["motion"]
         lengths = batch["length"]
@@ -1272,7 +1272,7 @@ class MLD(BaseModel):
         with torch.no_grad():
             if self.vae_type in ["mld", "vposert", "actor"]:
                 z, dist = self.vae.encode(feats_ref, lengths)
-              
+
             elif self.vae_type == "no":
                 z = feats_ref.permute(1, 0, 2)
             else:
@@ -1410,7 +1410,7 @@ class MLD(BaseModel):
         texts = batch["text"]
         motions = batch["motion"].detach().clone()
         lengths = batch["length"]
-        
+
         reference_motion = batch["reference_motion"].detach().clone()
         label = batch["label"][0].detach().clone()
 
@@ -1426,7 +1426,7 @@ class MLD(BaseModel):
                 word_embs = word_embs.repeat_interleave(
                     self.cfg.TEST.MM_NUM_REPEATS, dim=0)
                 pos_ohot = pos_ohot.repeat_interleave(self.cfg.TEST.MM_NUM_REPEATS,dim=0)
-            
+
                 text_lengths = text_lengths.repeat_interleave(self.cfg.TEST.MM_NUM_REPEATS, dim=0)
 
         if self.stage in ['diffusion', 'vae_diffusion',"cycle_diffusion"]:
@@ -1440,7 +1440,7 @@ class MLD(BaseModel):
                 texts = uncond_tokens
                 text_emb = self.text_encoder(texts)
                 z = self._diffusion_reverse(text_emb, lengths,reference_motion)
-            
+
             elif self.guidance_mode == 'v4':
                 batch_size = len(texts)
                 reference_motion = reference_motion.expand(batch_size,-1,-1)
@@ -1499,7 +1499,7 @@ class MLD(BaseModel):
         motion_name = self.label_to_motion[str(predicted.cpu().numpy())]
         base_name = self.label_to_motion[str(label.cpu().numpy())]
         print("name:%s -> %s" % (base_name,motion_name))
-        
+
         # joints recover
         joints_rst = self.feats2joints(feats_rst)
         joints_ref = self.feats2joints(motions)
@@ -1541,7 +1541,7 @@ class MLD(BaseModel):
             "label": label,
             "inference_time":inference_time
         }
-       
+
         return rs_set
 
 
@@ -1551,7 +1551,7 @@ class MLD(BaseModel):
         texts = batch["text"]
         motions = batch["motion"].detach().clone().cuda()
         lengths = batch["length"]
-        
+
         reference_motion = batch["reference_motion"].detach().clone().cuda()
         label = batch["label"][0].detach().clone().cuda()
 
@@ -1574,11 +1574,11 @@ class MLD(BaseModel):
                 word_embs = word_embs.repeat_interleave(
                     self.cfg.TEST.MM_NUM_REPEATS, dim=0)
                 pos_ohot = pos_ohot.repeat_interleave(self.cfg.TEST.MM_NUM_REPEATS,dim=0)
-            
+
                 text_lengths = text_lengths.repeat_interleave(self.cfg.TEST.MM_NUM_REPEATS, dim=0)
 
         if self.stage in ['diffusion', 'vae_diffusion',"cycle_diffusion"]:
-      
+
             if self.guidance_mode == 'v0':
                 uncond_tokens = [""] * len(texts)
                 if self.condition == 'text':
@@ -1588,7 +1588,7 @@ class MLD(BaseModel):
                 texts = uncond_tokens
                 text_emb = self.text_encoder(texts)
                 z = self._diffusion_reverse(text_emb, lengths,reference_motion)
-            
+
             elif self.guidance_mode == 'v4':
                 batch_size = len(texts)
                 reference_motion = reference_motion.expand(batch_size,-1,-1)
@@ -1604,9 +1604,9 @@ class MLD(BaseModel):
                     uncond_tokens.extend(texts)
                 texts = uncond_tokens
                 text_emb = self.text_encoder(texts)
-     
+
                 z = self._diffusion_reverse(text_emb, lengths,reference_motion,is_v4 = True)
-        
+
         elif self.stage in ['vae']:
             if self.vae_type in ["mld", "vposert", "actor"]:
                 z, dist_m = self.vae.encode(motions, lengths)
@@ -1627,7 +1627,7 @@ class MLD(BaseModel):
         inference_time = torch.tensor(end - start)
         self.times.append(end - start)
 
-       
+
         logits = self.style_function(feats_rst)
 
         probabilities = F.softmax(logits, dim=1)
@@ -1643,7 +1643,7 @@ class MLD(BaseModel):
         motion_name = self.label_to_motion[str(predicted.cpu().numpy())]
         base_name = self.label_to_motion[str(label.cpu().numpy())]
         print("name:%s -> %s" % (base_name,motion_name))
-        
+
         # joints recover
         joints_rst = self.feats2joints(feats_rst)
         joints_ref = self.feats2joints(motions)
@@ -1685,11 +1685,11 @@ class MLD(BaseModel):
             "label": label,
             "inference_time":inference_time
         }
-       
+
         return rs_set
-    
-   
-  
+
+
+
     def a2m_eval(self, batch):
         actions = batch["action"]
         actiontexts = batch["action_text"]
@@ -1799,10 +1799,10 @@ class MLD(BaseModel):
                     rs_set["lat_t"] = rs_set["lat_m"]
                 elif self.stage == "diffusion":
                     rs_set = self.train_diffusion_forward(batch)
-                
+
                 elif self.stage == "cycle_diffusion":
                     rs_set = self.train_cycle_diffusion_forward(batch)
-                
+
                 elif self.stage == "vae_diffusion":
                     vae_rs_set = self.train_vae_forward(batch)
                     diff_rs_set = self.train_diffusion_forward(batch)
@@ -1833,7 +1833,7 @@ class MLD(BaseModel):
                     # use t2m evaluators
                     # if self.is_puzzle == False:
                     rs_set = self.t2m_eval(batch)
-                 
+
                 elif self.condition == 'action':
                     # use a2m evaluators
                     rs_set = self.a2m_eval(batch)
@@ -1870,11 +1870,11 @@ class MLD(BaseModel):
                             batch["length"],
                             rs_set["predicted"],
                             rs_set["label"],
-                       
+
                             rs_set["joints_rst"],
                             rs_set["inference_time"],
                         )
-                
+
                         # )
                     elif metric == "UncondMetrics":
                         getattr(self, metric).update(
@@ -1889,7 +1889,7 @@ class MLD(BaseModel):
                     elif metric == "MMMetrics":
                         getattr(self, metric).update(rs_set["lat_rm"].unsqueeze(0),
                                                     batch["length"])
-                   
+
                     else:
                         raise TypeError(f"Not support this metric {metric}")
 
@@ -1946,13 +1946,13 @@ class MLD(BaseModel):
                             rs_set["inference_time"],
 
                         )
-                  
+
                     elif metric == "MRMetrics":
                         getattr(self, metric).update(rs_set["joints_rst"],
                                                     rs_set["joints_ref"],
                                                     batch["length"])
                     elif metric == "MMMetrics":
-                        
+
                         getattr(self, metric).update(rs_set["lat_rm"].unsqueeze(0),
                                                     batch["length"])
                     elif metric == "HUMANACTMetrics":
@@ -1966,7 +1966,7 @@ class MLD(BaseModel):
             # return forward output rather than loss during test
             if split in ["val","test"]:
                 return rs_set["joints_rst"], batch["length"]
-    
+
     def allsplit_epoch_end(self, split: str, outputs):
         dico = {}
 
@@ -1998,11 +1998,11 @@ class MLD(BaseModel):
                     "epoch": float(self.trainer.current_epoch),
                     "step": float(self.trainer.current_epoch),
                 })
-        
+
         # don't write sanity check into log
         if not self.trainer.sanity_checking:
             self.log_dict(dico, sync_dist=True, rank_zero_only=True)
-    
+
     def allsplit_epoch_end_test(self, split: str,is_mm = False):
         dico = {}
 
@@ -2017,7 +2017,7 @@ class MLD(BaseModel):
 
         if self.is_cmld == False or self.is_test == True:
             if split in ["val", "test"]:
-           
+
                 if is_mm == True and 'TM2TMetrics' in self.metrics_dict:
                     metrics_dicts = ['MMMetrics']
                 else:
@@ -2035,7 +2035,7 @@ class MLD(BaseModel):
             #         "epoch": float(self.trainer.current_epoch),
             #         "step": float(self.trainer.current_epoch),
             #     })
-        
+
         # don't write sanity check into log
         self.log_dict(dico, sync_dist=True, rank_zero_only=True)
 

@@ -1,6 +1,6 @@
 __pycache__
 deps
 .vscode
-.datasets/HumanML3D
+datasets/HumanML3D
 save
 results
